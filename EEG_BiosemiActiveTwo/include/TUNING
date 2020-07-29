@@ -1,0 +1,103 @@
+July 19 2010
+
+The acquisition library may be tuned for better performance
+on particular machines by using the parameters STRIDE and
+SYNC, which are explained below.
+
+Stride
+------
+
+During acquisition, multiple read requests are
+used to keep the data stream flowing into the ring buffer.
+By default the read request asks for 128KB of data (131072 bytes).
+The buffer pointer returned by "READ_POINTER" is updated at the
+end of each read request.
+
+The msec equivalent of this update depends on the data throughput
+from the acquisition box which is controlled by the mode switch
+setting on the box itself.
+
+This ring buffer stride value can be shortened or lengthened.
+
+The shorter the stride, the higher the load placed on the computer -
+there will be more user/system/user read requests per unit of time.
+The practical limit depends on the speed of the computer being used
+and what else the computer is doing.
+
+The stride can set in either kbytes or msec; using msec keeps the
+stride independent of the mode switch setting.
+
+If you want to lengthen the stride, consider that the stride determines
+the actual number of bytes per system read call.  Somewhere in the
+system or hardware there seems to be an upper limit on the size of a
+USB read; for instance, on Vista strides above 512 msec don't work.
+You may have to try several values to find what works.
+
+This stride can be changed by creating a file called "labview_dll.ini"
+that contains, for example, this line:
+
+stride_ms 32
+
+This requests reads and pointer updates approximately every
+32 msec.  The line:
+
+stride_kb 256
+
+requests a stride of 256*1024 bytes.
+
+Generally this file should be in the same directory as the
+acquisition program being run.  However when running under the
+control of the National Instruments LabView Workbench, this
+.ini file should instead be in the user's home directory - the
+Workbench doesn't report the location of the VI's being run.  
+On Windows, the home directory is the concatination of the
+environment variables HOMEDRIVE and HOMEPATH; on Linux and
+OS-X it is the environment variable HOME.
+
+The stride can also be changed by using one of these subroutine
+calls:
+
+BSIF_SET_STRIDE_MS(int msecs)
+
+BSIF_SET_STRIDE_KB(int kb)
+
+The stride setting actually used is displayed when running
+the test program Labview_DLL_SyncTest.
+
+
+Sync
+----
+
+The acquisition library has an option to have "READ_POINTER"
+returns sync'ed to stride steps.  The purpose of this option is
+to avoid burning up computer time looping on READ_POINTER calls,
+waiting for the pointer to change.
+
+This setting is more important with regular Linux and Mac OSX
+because on these systems all threads in a program run at the same
+priority.  Windows, on the other hand, allows the acquisition thread
+to run at a higher priority than the user's calling thread.
+
+By default this option is turned off.
+
+When turned on, "READ_POINTER" will not return unless the new pointer
+value differs from the pointer value given as the argument to
+"READ_POINTER".  This makes the argument an input and an output
+argument.
+
+Again this feature can be turned on by creating a file called 
+"labview_dll.ini" containing this line:
+
+sync
+
+See the note in the Stride section above about locating this
+file.
+
+This sync option can also be changed by using a subroutine call:
+
+BSIF_SET_SYNC(BOOL onOff)
+
+where onOff is either "TRUE" or "FALSE".
+
+The sync setting actually used is displayed when running
+the test program Labview_DLL_SyncTest.

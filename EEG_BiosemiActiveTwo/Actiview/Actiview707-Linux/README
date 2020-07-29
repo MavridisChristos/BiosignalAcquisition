@@ -1,0 +1,9 @@
+Christos N. Mavridis
+
+*** Run Biosemi Actiview GUI ***
+
+(plug in and power on device)
+cd ~/cmCode/biosemi/Actiview707-Linux/Actiview707-Linux
+sudo su 
+./Actiview707-Linux
+

@@ -1,0 +1,38 @@
+
+Installation instructions for the firmware:
+
+The Polhemus Liberty (v2) (tm) tracker needs to load firmware onto the chip that controls the USB2 port. For this you will need the 'fxload' program ('apt-get install fxload' in Debian).
+
+Instructions:
+
+Run ./install_udev_firmware.sh  in this directory,
+
+or do the following per hand:
+
+    First, copy the file 70-polhemus.rules to /etc/udev/rules.d/ :
+     cp 70-polhemus.rules /etc/udev/rules.d/
+     apt-get install fxload
+
+
+    Copy the firmware file and firmware loader to /lib/firmware/polhemus:
+     mkdir -p /lib/firmware/polhemus
+     cp a3load.hex /lib/firmware/polhemus
+     cp LbtyUsb8051.hex /lib/firmware/polhemus
+
+    Reload udev:
+     udevadm control --reload-rules
+
+
+Now when you plug the Liberty tracker, it should show the 0f44:ff21
+vendor/product id for a couple of seconds, and then switch to 0f44:ff20
+(after it loaded the firmware and restarted the micro-controller)
+
+
+In case udev is not working correctly for you, you can try to manually load the firmware:
+    See lsusb for the correct path in /proc.
+
+    sudo fxload -v -D /dev/bus/usb/001/015 -I LbtyUsb8051.hex -t fx2 -s a3load.hex
+
+Note: The file LbtyUsb8051.hex was graciously provided by Polhemus. Thanks a lot.
+
+

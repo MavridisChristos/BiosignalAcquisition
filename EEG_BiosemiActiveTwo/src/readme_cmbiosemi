@@ -1,0 +1,192 @@
+/**************************************
+ ** Christos N. Mavridis @ CSL, NTUA **
+ **************************************
+
+cmbiosemi code virtually implements the procedure described at:
+http://www.biosemi.com/faq/make_own_acquisition_software.htm
+
+*** CSL equipment *** 
+
+# AD-box model MK2 @ Speedmode = 7 
+
+	AD-box switch  | Sample-rate     | Pin + EX + Sensor channels
+	***************|*****************|***************************
+	0              | 2048 (2 kHz)    | >> Daisy-chain mode(see manual)
+	1              | 4096 (4 kHz)    | >> Daisy-chain mode(see manual)
+	2              | 8192 (8 kHz)    | >> Daisy-chain mode(see manual)
+	3              | 16384 (16 kHz)  | >> Daisy-chain mode(see manual)
+	4              | 2048 (2 kHz)    | 256+8+7
+	5              | 4096 (4 kHz)    | 128+8+7
+	6              | 8192 (8 kHz)    | 64+8+7
+	------------------------------------------
+	7              | 16384 (16 kHz)  | 32+8+7
+	------------------------------------------
+	8 (AIB-mode)   | 2048 (2 kHz)    | 256+8+7+32AIB
+	9 (ABR-mode)   | 16384 (16 kHz)  | 5
+
+							| number of 32-bit words per sample
+ 	************************|***********************************
+	Speedmode 0, 1, 2 and 3	| 610 (2+4*152) 
+	Speedmode 4				| 282 
+	Speedmode 5				| 154 
+	Speedmode 6				| 90 
+	-----------------------------
+	Speedmode 7				| 58 
+	-----------------------------
+	Speedmode 8				| 314 (2+280+32)
+
+# The receiver converts every 24-bit word from the AD-box into a 32-bit 
+  Signed Integer, by adding an extra zero Least Significant Byte to the ADC data. 
+  The 24-bit ADC output has an LSB value of 1/32th uV. 
+  The 32-bit Integer received for the USB interface has an LSB value of 
+  1/32*1/256 = 1/8192th uV
+
+# Two extra channels are leading the ADC data: 
+  channel 1 = sync (0xffffff00) and channel 2 = Status (usually 0x9fffff01)
+  channels 3-258 are ADCs 1-256
+  cmPattern for sync word: "sync - nosync - nosync"
+
+*** Used structures ***
+
+# bioHandle: driver handle sent by OPEN_DRIVER().
+ 
+# controlBuffer: a 64-bytes buffer, to be sent through USB_WRITE().
+	1st Byte (MSB) controls the start(0xff)/stop(0x00) filling of ring buffer 
+	2nd and 3rd byte are used for outgoing triggers. 
+	Bytes 4-64 are unused.
+	 
+# ringBuffer: the main data buffer.
+	-default(biosemi)
+	ringBufferSize = 32Mbytes (65536 in 512 byte units)
+				   = 256 * read calls (128Kbyte-stride)
+				   = 256 * 564.9655 data measurements (58 channels of 4 bytes)	
+	-alternative:
+	ringBufferSize = 29Mbytes (59392 in 512 byte units)
+				   = 1024 * read calls (29Kbyte-stride)
+				   = 1024 * 128 data measurements (58 channels of 4 bytes)				   
+	
+# infoBuffer: a buffer containing information about driver (stride & sync)
+
+# readPointer: a file pointer returned by READ_POINTER().
+	If false acquisition does not run. 
+	#stride
+	By default the read request asks for 128KB of data (131072 bytes) == stride
+	Stride determines the actual number of bytes per system read call
+	Stride can be set in either kbytes or msec with labview_dll.ini
+	or BSIF_SET_STRIDE_MS(int msecs) // BSIF_SET_STRIDE_KB(int kb) 
+	Using msec keeps the stride independent of the mode switch setting
+	#sync
+	READ_POINTER() returns sync'ed to stride steps
+	avoid burning up computer time looping on READ_POINTER calls,
+	waiting for the pointer to change.
+	READ_POINTER() will not return unless the new pointer value 
+	differs from the pointer value given
+	Sync can be set either with labview_dll.ini or BSIF_SET_SYNC(BOOL 1/0)
+
+# seam: ringBuffer byte index, by READ_POINTER()
+	points to last byte read within the ringbuffer
+	loops from 0 to 333554432
+
+*** I/O (may be changed) ***
+
+# output file: 1st argument
+	format: 32 channels (in uV) per row separated with /t + timeStamp
+
+# time limit: 2nd argument
+
+*** Algorithm ***
+
+Step.1: get usb_handle
+step.2: init USB2 interface
+Step.3: init the ringBuffer
+Step.4: enable the handshake (start continuous data flow to the buffer)
+Get start time
+While(!got_signal)
+{
+	Step.5: read buffer (128Kbytes)
+	For every measurement (32 channels)
+	{
+		Step.6: cmCode
+	}	
+	Get timeStamp
+	Check time limit
+	Print status (every 8 buffers)
+}
+Step.7: disable the handshake  
+Step.8: close the drivers
+
+**************
+**** Call ****
+**************
+
+root# . ./initbiosemi
+root# ./cmbiosemi eegfiles/file_ time_limit...
+
+*******************
+**** Arguments **** 
+*******************
+
+argv[1]: file to write
+argv[2]: time limit
+
+****************
+**** Tuning ****
+****************
+
+labview_dll.ini
+see tuning
+
+***********************
+**** Prerequisites ****
+***********************
+
+0. 	bsif.h, bsif_libusb.o, cmbiosemi.h,
+	labview_dll.cpp, labview_dll.h, labview_dll.ini, 
+	liblabview_dll shared library
+
+1. Install libusb-1.0 in it's default location
+   (/usr/local/include and /usr/local/lib):
+
+	cd libusb-1.0.8 # read INSTALL
+	./configure
+	make
+	sudo su
+	make install
+	exit
+
+2. Add location of libusb, to "make" the shared library
+	
+	# only if you want to make the lib
+	export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+
+3. Add location of liblabview_dll and libusb, to run cmlabview
+
+	# 'pwd' only if liblabview_dll in the same directory
+	export LD_LIBRARY_PATH=`pwd`:$LD_LIBRARY_PATH
+
+	# if /usr/local/lib is not in the default path (rare)
+	export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+4. If you do not want to run as superuser, add usb access permissions
+
+ 4a. As "superuser", create file "/etc/udev/rules.d/60-biosemi.rules"
+      containing these six lines:
+
+	# biosemi usb receiver
+	SYSFS{idVendor}=="0547", SYSFS{idProduct}=="1005", MODE="0666"
+	SYSFS{idVendor}=="0547", SYSFS{idProduct}=="1005", SYMLINK+="biosemi"
+	SYSFS{idVendor}=="04b4", SYSFS{idProduct}=="8613", MODE="0666"
+	SYSFS{idVendor}=="04b4", SYSFS{idProduct}=="8613", SYMLINK+="biosemi2"
+	LABEL="biosemi_rules_end"
+	
+ 4b. Reload the rule changes and restart "udev':
+    
+    udevadm control --reload-rules
+    udevadm control --start-exec-queue
+
+	This should create a link called "/dev/biosemi" to the actual
+    USB device with all access for everyone.  Check by re-inserting
+    the BioiSemi Receiver's USB cable into the computer's USB slot
+    and use the command "dir -l /dev/biosemi".  Note, sometimes a
+    re-boot is required to make these rules work.
+

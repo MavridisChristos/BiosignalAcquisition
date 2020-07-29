@@ -1,0 +1,281 @@
+April 20, 2011
+
+
+This software contains no kernel mode routines and runs entirely
+in user mode.  It was developed and tested on 64 bit CentOS 5,
+Linux 2.6.18 (similar to RedHat AS5).  Testing was also performed
+on 32 bit RedHat AS4, Linux 2.6.9 and a 64 bit Fedora 11, Linux
+2.6.29.
+
+The BioSemi Linux software is distributed with a Makefile so that
+it can be build to run on as many different systems as possible.
+
+To access the computer's USB this software uses an open source package,
+"libusb1.0" (see http://libusb.wiki.sourceforge.net/Libusb1.0).
+The "libusb1.0" package has the "GNU Lesser General Public License"
+(or "LGPL") which means it must be distributed in source form.
+
+Linux Installation Procedure
+============================
+
+Perform the following steps to install both software packages
+(in these instructions bash shell is assumed).
+
+1. Download and unpack the BioSemi support software. This includes
+   the current (April 2011) "libusb-1.0.8" source distribution as
+   a convenience for installation.  The libsub software is
+   identical to that available on the sourceforge web site.
+
+2. Move to the appropriate subdirectory for your system - either 32 bit
+   ("cd Linux32") or 64 bit ("cd Linux64").
+
+You can install libusb-1.0 either in it's default location
+(/usr/local/include and /usr/local/lib) or below the current directory
+(i.e. ./include and ./lib).  To install in the default location you
+will be asked later to become "superuser" to complete the install.
+
+To install in the default location, follow the steps 3A to 5A below;
+to install below the current directory follow steps 3B to 5B.
+
+---------
+
+3A. "cd libusb-1.0.8" into the libusb subdirectory and read the file
+    "INSTALL".  You probably only need to do this:
+
+./configure
+make
+su
+make install
+exit
+
+4A. "cd .." back to the Linux32 or 64 BioSemi software directory.
+
+5A. For the labview_dll "make" below, the location where "libusb" was
+    installed must be added to the environment variable
+    PKG_CONFIG_PATH, i.e.
+
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+
+     If the file "/etc/ld.so.conf" doesn't contain the location
+     "/usr/local/lib", this location must be added to the
+     environment variable LD_LIBRARY_PATH:
+
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+    Skip to step 6.
+
+---------
+
+3B. Define a prefix for the libusb install to use in place of
+   /usr/local.  For instance:
+
+export LIBUSB_PREFIX=`pwd`
+
+   "cd libusb-1.0.8" into the libusb subdirectory and read the file
+   "INSTALL".  You probably only need to do this:
+
+./configure  --prefix=$LIBUSB_PREFIX
+make
+make install
+
+4B. "cd .." back to the Linux 32 or 64 BioSemi software directory.
+
+5B. Add the location of "libusb"'s lib subdirectory to the
+    environment variable LD_LIBRARY_PATH, i.e.
+
+export LD_LIBRARY_PATH=$LIBUSB_PREFIX/lib:$LD_LIBRARY_PATH
+
+    If "pkg-config" is installed, add the location where "libusb" was
+    installed to the environment variable PKG_CONFIG_PATH, i.e.
+
+export PKG_CONFIG_PATH=$LIBUSB_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH
+
+---------
+
+6. Type "make".  This should build the Biosemi interface shared library -
+   labview_dll - and a test program - Labview_DLL_SyncTest - that uses
+   the library for acquisition.
+
+   Note: The shared library is called "labview_dll" for compatibility
+         with BioSemi's version of this software that runs on Windows.
+         To follow Linux naming conventions the file produced is
+         actually called "liblabview_dll.so.0.0.1", and a "linker name"
+         "liblabview.so" and a "soname" "liblabview.so.0" are setup
+         to point to this file.
+
+7. To run the test program, the location of the "liblabview_dll" shared
+   library must be added to the environment variable LD_LIBRARY_PATH.
+   If it is the current directory, this is the command:
+
+export LD_LIBRARY_PATH=`pwd`:$LD_LIBRARY_PATH
+
+   As well, the location of the "libusb" shared library must be
+   declared - as in step 5A or 5B above.  If you just performed
+   either of these steps then this has been taken care of.
+   Otherwise, if "libusb" was installed in the default location
+   (steps 3A-5A), use
+
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+    Or if "libusb" was installed below the current directory
+    (steps 3B-5B), use
+
+export LD_LIBRARY_PATH=`pwd`/lib:$LD_LIBRARY_PATH
+
+   The PKG_CONFIG_PATH is not required to run the test program. 
+
+   Plug the Biosemi Receiver's USB cable into the computer and type
+   "./Labview_DLL_SyncTest 0" to start the test program.  Use CTRL-C to
+   stop the test.  See the "Labview_DLL_SyncTest Usage" section below for
+   more about this program.
+
+   If you get this message:
+
+./Labview_DLL_SyncTest: error while loading shared libraries: labview_dll.so: cannot open shared object file: No such file or directory
+
+   this usually means that the LD_LIBRARY_PATH is not set correctly.
+
+   If you get this message:
+
+libusb couldn't open USB device /proc/bus/usb/001/009: Permission denied.
+libusb requires write access to USB device nodes.
+Could not find/open Biosemi device
+No USB driver found
+Can't open device driver!
+
+   then read the section below about "USB Access Permissions".
+
+8. A more permanent arrangement for the liblabview_dll and libusb
+   shared libraries and associated link pointers is to put them
+   in /usr/local/lib and make sure that /etc/ld.so.conf contains
+   the line:
+
+/usr/local/lib
+
+    This removes the need to have LD_LIBRARY_PATH set to run with
+    these libraries.
+
+
+
+USB Access Permissions
+======================
+
+In Linux, USB devices often have ownership and permissions set to
+restrict access to "root" only.  This access must be opened
+whenever the BioSemi Receiver's cable is plugged into one of
+the computer's USB ports.  Newer systems use "udev" or "udevadm"
+to do this; older systems use "hotplug".
+
+udev
+----
+
+Our development system is CentOS 5, Linux 2.6.18 (similar
+to Redhat AS5).  This system uses "udev" to open USB access.
+First check the current access:
+1) Plugin the Biosemi Receiver's USB cable into the computer.
+2) Open a terminal or xterm window and type "dir -l /dev/usb*".
+3) If the output shows that the protections are "crw-------" and
+   the owner is "root", use the following steps to have the
+   permissions change automatically wheneven the BioSemi Receiver is
+   plugged in.
+
+   a) As "superuser", create file "/etc/udev/rules.d/60-biosemi.rules"
+      containing these six lines:
+
+# biosemi usb receiver
+SYSFS{idVendor}=="0547", SYSFS{idProduct}=="1005", MODE="0666"
+SYSFS{idVendor}=="0547", SYSFS{idProduct}=="1005", SYMLINK+="biosemi"
+SYSFS{idVendor}=="04b4", SYSFS{idProduct}=="8613", MODE="0666"
+SYSFS{idVendor}=="04b4", SYSFS{idProduct}=="8613", SYMLINK+="biosemi2"
+LABEL="biosemi_rules_end"
+
+   b) Reload the rule changes and restart "udev' by using these two
+      commands:
+
+      /sbin/udevcontrol reload_rules
+      /sbin/udevstart        (or sometimes: /sbin/start_udev)          
+
+      This should create a link called "/dev/biosemi" to the actual
+      USB device with all access for everyone.  Check by re-inserting
+      the BioiSemi Receiver's USB cable into the computer's USB slot
+      and use the command "dir -l /dev/biosemi".  Note, sometimes a
+      re-boot is required to make these rules work.        
+
+   c) As an ordinary user retry the test program:
+      ./Labview_DLL_SyncTest 0
+
+
+udevadm
+-------
+
+A newer test system is Fedora11, Linux 2.6.29.  This system uses
+"udevadm" to open USB access.
+
+The procedure here is identical to the "udev" described above except
+in step 3b the commands to reload the rule changes and restart "udev'
+are:
+
+      udevadm control --reload-rules
+      udevadm control --start-exec-queue
+
+
+hotplug
+-------
+
+An older system that was used for testing runs Redhat AS4,
+Linux 2.6.9.  This system uses "hotplug" to control USB access.
+To open access to the USB port using "hotplug" perform the following
+steps, as "superuser".
+1) Create file "/etc/hotplug/usb/usbbiosemi.usermap" containing this
+   line:
+
+usbbiosemi 0x0003 0x0547 0x1005 0 0 0 0 0 0 0 0 0
+
+2) Create file "/etc/hotplug/usb/usbbiosemi" containing this
+   script:
+
+#!/bin/bash
+
+if [ "${ACTION}" = "add" ] && [ -f "${DEVICE}" ]
+then
+   chown root "${DEVICE}"
+   chgrp root "${DEVICE}"
+   chmod 666 "${DEVICE}"
+fi
+
+3) Make this script file executable with this command:
+   chmod a+x /etc/hotplug/usb/usbbiosemi 
+
+4) As an ordinary user retry the test program:
+   ./Labview_DLL_SyncTest 0
+
+
+Labview_DLL_SyncTest Usage
+==========================
+
+This program checks that the 0xffffff00 sync words appear in all the
+right places in the input stream.  It stops with a message if they don't.
+
+There can be 2 command line parameters for this program:
+- ring buffer size, in 512 byte units,
+- time to run.
+They can be in any order or left out completely.
+
+Ring buffer size must start with a 'b' or 'B' and is given in units
+of 512 bytes.  The default if not given is b65536 for 32 Mbytes.
+
+The time to run is in seconds.  The default if not given is 600 seconds
+(10 minutes).  If given as 0 there will be no time limit.
+
+Hitting CTRL-C when the program is running will stop the run.
+
+
+liblabview_dll.so Usage Notes
+=============================
+
+1. The ring buffer can be any size as long as it is a multiple of 512
+bytes.  Note: on Vista and XP the size need only be a multiple of 4 bytes.
+
+2. Some performance improvement may be gained by using the library
+parameters explained in the file "TUNING".
+

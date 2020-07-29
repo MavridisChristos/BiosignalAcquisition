@@ -1,0 +1,2 @@
+BUS=="usb",ACTION=="add",SYSFS{idProduct}=="ff21",SYSFS{idVendor}=="0f44",RUN+="/sbin/fxload -D %N -s /lib/firmware/polhemus/a3load.hex -I /lib/firmware/polhemus/LbtyUsb8051.hex -t fx2"
+
