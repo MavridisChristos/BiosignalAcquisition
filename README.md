@@ -10,12 +10,4 @@ Please cite the following:
 
 Christos Mavridis, John Baras and Kostas Kyriakopoulos, A Human-Robot Interface based on Surface Electroencephalographic Sensors, IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS), 2020
 
-BibTex code:
-
-@inproceedings{mavridis2020eeg,
-  title={A Human-Robot Interface based on Surface Electroencephalographic Sensors},
-  author={Mavridis, Christos and Baras, John and Kyriakopoulos, Kostas},
-  booktitle={2020 International Conference on Intelligent Robots and Systems (IROS)},
-  year={2020},
-  organization={IEEE/RSJ}
-}
+The BibTex code is available [here](https://github.com/MavridisChristos/BiosignalAcquisition/blob/master/mavridis2020eeg.bib)
